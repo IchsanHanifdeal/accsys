@@ -123,12 +123,10 @@
     </div>
 
     <script>
-        // Data akun dikirim dari Controller (wajib ada compact('accounts'))
         const accounts = @json($accounts);
         let rowCount = 0;
 
         document.addEventListener("DOMContentLoaded", function() {
-            // Tampilkan SweetAlert jika ada session flash message
             @if(session('success'))
                 Swal.fire({
                     icon: 'success',
@@ -147,32 +145,26 @@
                 });
             @endif
 
-            // Inisialisasi: Tambahkan 2 baris kosong
             addRow();
             addRow();
         });
 
-        // 1. GENERATE ROW (DINAMIS)
-        // Fungsi ini bisa dipanggil kosong addRow() atau dengan data addRow({code:'101', debit:5000})
         function addRow(data = {}) {
             const tbody = document.getElementById('tableBody');
             const rowId = rowCount++;
 
-            // Logika "Smart Select": Cari ID akun berdasarkan Kode Akun (101, 102, dll)
             let selectedId = '';
             if (data.code) {
                 const found = accounts.find(a => a.code == data.code);
                 if (found) selectedId = found.id;
             }
 
-            // Generate opsi dropdown
             let options = '<option value="" disabled selected>-- Pilih Akun --</option>';
             accounts.forEach(acc => {
                 const isSel = (acc.id == selectedId) ? 'selected' : '';
                 options += `<option value="${acc.id}" ${isSel}>[${acc.code}] ${acc.name}</option>`;
             });
 
-            // Nilai default input
             const debitVal = data.debit || 0;
             const creditVal = data.credit || 0;
 
@@ -204,10 +196,8 @@
             calcTotals();
         }
 
-        // Hapus Baris
         function removeRow(id) {
             const row = document.getElementById(`row-${id}`);
-            // Cegah hapus jika baris <= 1
             if (document.querySelectorAll('#tableBody tr').length > 1) {
                 row.remove();
                 calcTotals();
@@ -223,14 +213,12 @@
                     title: "Minimal harus ada 1 baris jurnal."
                 });
 
-                // Reset nilai baris terakhir daripada menghapusnya
                 row.querySelectorAll('input').forEach(i => i.value = 0);
                 row.querySelector('select').selectedIndex = 0;
                 calcTotals();
             }
         }
 
-        // Reset Formulir
         function resetForm() {
             Swal.fire({
                 title: 'Reset Formulir?',
@@ -262,7 +250,6 @@
             });
         }
 
-        // 2. KALKULASI TOTAL & VALIDASI BALANCE (LOGIKA UTAMA)
         function calcTotals() {
             let totalDebit = 0;
             let totalCredit = 0;
@@ -270,7 +257,6 @@
             document.querySelectorAll('.debit-input').forEach(el => totalDebit += parseFloat(el.value) || 0);
             document.querySelectorAll('.credit-input').forEach(el => totalCredit += parseFloat(el.value) || 0);
 
-            // Update Tampilan Total
             const fmt = new Intl.NumberFormat('id-ID');
             document.getElementById('totalDebit').innerText = fmt.format(totalDebit);
             document.getElementById('totalCredit').innerText = fmt.format(totalCredit);
@@ -278,19 +264,15 @@
             const alertBox = document.getElementById('balanceAlert');
             const btnSave = document.getElementById('btnSave');
 
-            // Logika UI Alert & Tombol Simpan
             if (totalDebit > 0 && Math.abs(totalDebit - totalCredit) < 1) {
-                // Jika SEIMBANG
                 alertBox.className = "alert alert-sm alert-success text-white rounded-lg flex items-center gap-2 mt-2 py-2 shadow-sm";
                 alertBox.innerHTML = `<x-lucide-check-circle class="w-4 h-4" /> <span class="text-xs font-bold">Balance! Jurnal siap disimpan.</span>`;
                 btnSave.disabled = false;
             } else if (totalDebit === 0 && totalCredit === 0) {
-                // Jika KOSONG
                 alertBox.className = "alert alert-sm bg-base-200 text-base-content/60 rounded-lg flex items-center gap-2 mt-2 py-2 border-0";
                 alertBox.innerHTML = `<x-lucide-info class="w-4 h-4" /> <span class="text-xs">Silakan input nominal.</span>`;
                 btnSave.disabled = true;
             } else {
-                // Jika TIDAK SEIMBANG
                 const diff = Math.abs(totalDebit - totalCredit);
                 alertBox.className = "alert alert-sm alert-error text-white rounded-lg flex items-center gap-2 mt-2 py-2 shadow-sm";
                 alertBox.innerHTML = `<x-lucide-alert-triangle class="w-4 h-4" /> <span class="text-xs font-bold">Tidak Seimbang (Selisih: Rp ${fmt.format(diff)})</span>`;
@@ -298,7 +280,6 @@
             }
         }
 
-        // 3. FITUR PINTAR (GENERATOR TEMPLATE)
         function generateTemplate(type) {
             const plafon = parseFloat(document.getElementById('calc_plafon').value) || 0;
             const tenor = parseFloat(document.getElementById('calc_tenor').value) || 0;
@@ -313,7 +294,6 @@
                 return;
             }
 
-            // Notifikasi Toast Sukses
             const Toast = Swal.mixin({
                 toast: true,
                 position: "top-end",
@@ -326,38 +306,29 @@
                 title: "Template berhasil diterapkan"
             });
 
-            // Reset tabel sebelum isi data baru
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
-            // --- KASUS PENCAIRAN (JURNAL 1) ---
             if (type === 'pencairan') {
                 document.getElementById('trx_desc').value = `Pencairan Pinjaman Anggota (Plafon: Rp ${new Intl.NumberFormat('id-ID').format(plafon)})`;
 
-                // Cari akun Piutang (Debit), Kas (Kredit)
-                // Pastikan kode akun (101, 102) sesuai dengan database Anda
-                addRow({ code: '102', debit: plafon, credit: 0 }); // Piutang
-                addRow({ code: '101', debit: 0, credit: plafon }); // Kas
+                addRow({ code: '102', debit: plafon, credit: 0 });
+                addRow({ code: '101', debit: 0, credit: plafon });
 
-            // --- KASUS ANGSURAN (JURNAL 2) ---
             } else if (type === 'angsuran') {
                 if (tenor <= 0) {
                     Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Mohon isi "Tenor" agar perhitungan akurat.' });
                     return;
                 }
 
-                // Rumus Sederhana (Flat)
                 const pokok = Math.round(plafon / tenor);
                 const bunga = Math.round(plafon * (bungaPercent / 100));
                 const total = pokok + bunga;
 
                 document.getElementById('trx_desc').value = `Setoran Angsuran (Pokok + Bunga)`;
 
-                // 1. Kas (Debit) - Uang Masuk
                 addRow({ code: '101', debit: total, credit: 0 });
-                // 2. Piutang (Kredit) - Potong Pokok
                 addRow({ code: '102', debit: 0, credit: pokok });
-                // 3. Pendapatan (Kredit) - Bunga/Jasa
                 addRow({ code: '401', debit: 0, credit: bunga });
             }
         }
